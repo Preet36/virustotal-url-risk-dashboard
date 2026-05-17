@@ -150,10 +150,10 @@ Risk levels:
 ## Example Analyst Note
 
 ```text
-The URL https://paypal-account-verification-alert.com was triaged as High risk with a score of 72/100.
-VirusTotal returned malicious and suspicious detections.
-The extracted domain contains phishing-related keywords and possible brand impersonation.
-Recommended action: escalate for SOC review, consider blocking the domain, and search logs for related activity.
+The URL http://malware.wicar.org was triaged as Critical risk with a score of 100/100.
+VirusTotal returned 15 malicious, 1 suspicious, 47 harmless, and 30 undetected verdicts.
+The extracted domain is wicar.org with subdomain malware and path /. Phishing keywords found: none detected. Brand-related indicators found: none detected.
+Recommended action: Escalate immediately, block the URL/domain, preserve evidence, and check for user clicks.
 ```
 
 
