@@ -52,6 +52,7 @@ phishing-virustotal-url-risk-dashboard/
 ```bash
 git clone https://github.com/Preet36/virustotal-url-risk-dashboard.git
 cd virustotal-url-risk-dashboard
+Make sure you have Git downloaded
 ```
 
 ### 2. Create a virtual environment
