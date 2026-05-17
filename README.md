@@ -1,4 +1,4 @@
-#Phishing Link Threat Analysis Dashboard
+# Phishing Link Threat Analysis Dashboard
 
 This project is a Python-based cybersecurity dashboard designed to simulate how a SOC analyst may triage suspicious URLs from phishing alerts. The tool uses the VirusTotal API to retrieve URL reputation data, calculates a custom phishing risk score, identifies suspicious URL patterns, stores investigation history, and generates analyst-style notes for escalation decisions.
 
