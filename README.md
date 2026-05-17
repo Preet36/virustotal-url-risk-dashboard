@@ -130,20 +130,4 @@ Risk levels:
 The URL https://paypal-account-verification-alert.com was triaged as High risk with a score of 72/100. VirusTotal returned malicious and suspicious detections. The extracted domain contains phishing-related keywords and possible brand impersonation. Recommended action: escalate for SOC review, consider blocking the domain, and search logs for related activity.
 ```
 
-## Resume Bullet
 
-Built a Python-based SOC triage dashboard using the VirusTotal API to analyze suspicious URLs, calculate custom phishing risk scores, store investigation history, and generate analyst-style escalation notes.
-
-## Future Improvements
-
-- Add WHOIS/domain age enrichment
-- Add screenshot capture for suspicious webpages
-- Add email header parsing
-- Add integration with Microsoft Sentinel or Splunk
-- Add PDF report generation
-- Add allowlist/blocklist support
-- Add authentication for multiple analysts
-
-## Security Notes
-
-This tool should support analyst decision-making, not fully replace human review. VirusTotal results should be combined with other evidence such as email headers, endpoint logs, DNS logs, proxy logs, and user activity.
