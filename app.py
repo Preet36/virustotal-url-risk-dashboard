@@ -272,14 +272,13 @@ def analyze_url(url):
 # Streamlit Dashboard
 # ------------------------------------------------------
 st.set_page_config(
-    page_title="Phishing URL SOC Triage Dashboard",
-    page_icon="🛡️",
+    page_title="Phishing Link Threat Analysis Dashboard",
     layout="wide",
 )
 
 init_db()
 
-st.title("🛡️ Phishing URL Intelligence & SOC Triage Dashboard")
+st.title("Phishing Link Threat Analysis Dashboard")
 st.write(
     "A SOC-style dashboard that uses VirusTotal threat intelligence, custom risk scoring, "
     "URL parsing, scan history, and exportable reports to support phishing alert triage."
