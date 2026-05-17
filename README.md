@@ -59,6 +59,9 @@ Make sure you have Git downloaded
 
 ```bash
 python -m venv .venv
+
+If that does not work use this command instead:
+py -m venv .venv
 ```
 
 Activate it on Windows:
