@@ -52,7 +52,7 @@ phishing-virustotal-url-risk-dashboard/
 ```bash
 git clone https://github.com/Preet36/virustotal-url-risk-dashboard.git
 cd virustotal-url-risk-dashboard
-Make sure you have Git downloaded
+
 ```
 
 ### 2. Create a virtual environment
@@ -82,13 +82,24 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Add your VirusTotal API key
-
-Rename `.env.example` to `.env` and add your VirusTotal API key:
+### 4. Copy .env.example to .env
+run these commands in order to change the API key to your own
+```bash
+copy .env.example .env
+```
+check if the .env is inside of your directory 
+```bash
+dir 
+```
+Then use this command to open the file and change the API key
+```bash
+code .env
+```
 
 ```env
 VT_API_KEY=your_virustotal_api_key_here
 ```
+Make sure to save your file (Ctrl + S)
 
 ### 5. Run the dashboard
 
