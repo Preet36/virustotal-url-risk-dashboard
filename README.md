@@ -35,7 +35,7 @@ Phishing links are one of the most common alerts that SOC teams investigate. Thi
 ## Project Structure
 
 ```text
-phishing-url-soc-triage-dashboard/
+phishing-virustotal-url-risk-dashboard/
 │
 ├── app.py
 ├── requirements.txt
@@ -50,8 +50,8 @@ phishing-url-soc-triage-dashboard/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/phishing-url-soc-triage-dashboard.git
-cd phishing-url-soc-triage-dashboard
+git clone https://github.com/yourusername/virustotal-url-risk-dashboard.git
+cd virustotal-url-risk-dashboard
 ```
 
 ### 2. Create a virtual environment
