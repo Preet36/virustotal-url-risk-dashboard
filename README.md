@@ -150,7 +150,10 @@ Risk levels:
 ## Example Analyst Note
 
 ```text
-The URL https://paypal-account-verification-alert.com was triaged as High risk with a score of 72/100. VirusTotal returned malicious and suspicious detections. The extracted domain contains phishing-related keywords and possible brand impersonation. Recommended action: escalate for SOC review, consider blocking the domain, and search logs for related activity.
+The URL https://paypal-account-verification-alert.com was triaged as High risk with a score of 72/100.
+VirusTotal returned malicious and suspicious detections.
+The extracted domain contains phishing-related keywords and possible brand impersonation.
+Recommended action: escalate for SOC review, consider blocking the domain, and search logs for related activity.
 ```
 
 
