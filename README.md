@@ -48,8 +48,11 @@ phishing-virustotal-url-risk-dashboard/
 ## Setup Instructions
 ### Pre Requisite
 You need an API key from Virus Total
+
 You can do this by going to the VirusTotal Website and Signing up on https://www.virustotal.com/gui/join-us
+
 Check your email and activate your account 
+
 After successfully signing in go into your profile and you should be able to access your API Key
 
 ### 1. Clone the repository
