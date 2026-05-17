@@ -86,8 +86,6 @@ Rename `.env.example` to `.env` and add your VirusTotal API key:
 VT_API_KEY=your_virustotal_api_key_here
 ```
 
-Do not upload `.env` to GitHub.
-
 ### 5. Run the dashboard
 
 ```bash
