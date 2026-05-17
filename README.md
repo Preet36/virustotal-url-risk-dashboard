@@ -50,7 +50,7 @@ phishing-virustotal-url-risk-dashboard/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/virustotal-url-risk-dashboard.git
+git clone https://github.com/Preet36/virustotal-url-risk-dashboard.git
 cd virustotal-url-risk-dashboard
 ```
 
