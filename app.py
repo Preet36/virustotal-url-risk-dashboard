@@ -299,11 +299,10 @@ with st.sidebar:
     st.write("• Exportable CSV reports")
 
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, = st.tabs([
     "Single URL Scan",
     "Bulk CSV Scan",
     "Scan History",
-    "GitHub Notes",
 ])
 
 # ------------------------------------------------------
@@ -441,27 +440,3 @@ with tab3:
             "scan_history_export.csv",
             "text/csv",
         )
-
-# ------------------------------------------------------
-# GitHub Notes Tab
-# ------------------------------------------------------
-with tab4:
-    st.subheader("How to Document This Project")
-    st.markdown(
-        """
-        **Suggested GitHub sections:**
-
-        1. Project Overview  
-        2. Why this helps SOC analysts  
-        3. Tools and technologies used  
-        4. Features  
-        5. Installation steps  
-        6. Screenshots  
-        7. Example investigation workflow  
-        8. Future improvements  
-
-        **Good resume bullet:**
-
-        Built a Python-based SOC triage dashboard using the VirusTotal API to analyze suspicious URLs, calculate custom phishing risk scores, store investigation history, and generate analyst-style escalation notes.
-        """
-    )
