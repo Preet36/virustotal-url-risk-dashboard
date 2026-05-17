@@ -39,7 +39,7 @@ phishing-virustotal-url-risk-dashboard/
 │
 ├── app.py
 ├── requirements.txt
-├──Screenshots.md
+├── Screenshots.md
 ├── .env.example
 ├── .gitignore
 ├── test_urls.csv
