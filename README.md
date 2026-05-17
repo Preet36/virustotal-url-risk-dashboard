@@ -46,6 +46,11 @@ phishing-virustotal-url-risk-dashboard/
 ```
 
 ## Setup Instructions
+### Pre Requisite
+You need an API key from Virus Total
+You can do this by going to the VirusTotal Website and Signing up on https://www.virustotal.com/gui/join-us
+Check your email and activate your account 
+After successfully signing in go into your profile and you should be able to access your API Key
 
 ### 1. Clone the repository
 
@@ -82,7 +87,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Copy .env.example to .env
+### 4.Run the dashboard
+
+```bash
+streamlit run app.py
+```
+
+### 5.  Manually Add your VirusTotal API key to .env (only do this if the API key in the sidebar is not working)
+Copy .env.example to .env
 run these commands in order to change the API key to your own
 ```bash
 copy .env.example .env
@@ -101,11 +113,6 @@ VT_API_KEY=your_virustotal_api_key_here
 ```
 Make sure to save your file (Ctrl + S)
 
-### 5. Run the dashboard
-
-```bash
-streamlit run app.py
-```
 
 ## Example Workflow
 
