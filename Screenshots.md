@@ -37,11 +37,25 @@ When a suspicious URL is submitted, the dashboard displays the VirusTotal scan s
 
 ___
 
+### Bulk CSV Analysis Output
+
+After a CSV file is uploaded and processed, the dashboard displays the analysis results for each submitted URL. This includes the VirusTotal scan verdicts, risk score, severity level, and SOC-style recommendations for reviewing multiple URLs efficiently.
+
+<img width="2100" height="1418" alt="image" src="https://github.com/user-attachments/assets/bb5add9c-2b2a-410a-a6fd-171f0419ade9" />
+
+<img width="2058" height="669" alt="image" src="https://github.com/user-attachments/assets/9f694011-05ba-4096-b081-01440affdf7a" />
+
+___
+
 ### Updated Scan History
 
 After a URL is analyzed, the result is automatically added to the History tab for later review.
 
-<img width="2095" height="1011" alt="image" src="https://github.com/user-attachments/assets/8ff7128f-7b6e-4856-9a3c-7ce0081ada53" />
+<img width="2080" height="1427" alt="image" src="https://github.com/user-attachments/assets/5f0c95a9-f41d-4679-9c9b-04517b58325a" />
+
+
+
+
 
 
 
