@@ -11,12 +11,38 @@ import tldextract
 from dotenv import load_dotenv
 
 # ------------------------------------------------------
+# Streamlit Page Configuration
+# ------------------------------------------------------
+st.set_page_config(
+    page_title="Phishing Link Threat Analysis Dashboard",
+    layout="wide",
+)
+
+# ------------------------------------------------------
 # Configuration
 # ------------------------------------------------------
 load_dotenv()
-VT_API_KEY = os.getenv("VT_API_KEY")
-VT_HEADERS = {"x-apikey": VT_API_KEY}
+
 DB_NAME = "scan_history.db"
+
+env_api_key = os.getenv("VT_API_KEY")
+
+st.sidebar.header("API Configuration")
+user_api_key = st.sidebar.text_input(
+    "Enter your VirusTotal API Key",
+    type="password",
+    help="Your key is only used during this session and is not saved."
+)
+
+VT_API_KEY = user_api_key if user_api_key else env_api_key
+
+if not VT_API_KEY:
+    st.error("Please enter your VirusTotal API key in the sidebar or add it to the .env file.")
+    st.stop()
+
+VT_HEADERS = {
+    "x-apikey": VT_API_KEY
+}
 
 PHISHING_KEYWORDS = [
     "login", "verify", "account", "secure", "password", "mfa",
@@ -36,6 +62,7 @@ BRAND_KEYWORDS = [
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS scans (
@@ -51,6 +78,8 @@ def init_db():
             undetected INTEGER,
             timeout INTEGER,
             phishing_keywords TEXT,
+            brand_indicators TEXT,
+            suspicious_subdomain TEXT,
             risk_score INTEGER,
             risk_level TEXT,
             recommendation TEXT,
@@ -58,6 +87,7 @@ def init_db():
         )
         """
     )
+
     conn.commit()
     conn.close()
 
@@ -65,23 +95,37 @@ def init_db():
 def save_scan(result):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
     cursor.execute(
         """
         INSERT INTO scans (
             url, domain, subdomain, path, scan_time, malicious, suspicious,
-            harmless, undetected, timeout, phishing_keywords, risk_score,
-            risk_level, recommendation, analyst_notes
+            harmless, undetected, timeout, phishing_keywords, brand_indicators,
+            suspicious_subdomain, risk_score, risk_level, recommendation, analyst_notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            result["url"], result["domain"], result["subdomain"], result["path"],
-            result["scan_time"], result["malicious"], result["suspicious"],
-            result["harmless"], result["undetected"], result["timeout"],
-            ", ".join(result["keywords"]), result["risk_score"],
-            result["risk_level"], result["recommendation"], result["analyst_notes"]
+            result["url"],
+            result["domain"],
+            result["subdomain"],
+            result["path"],
+            result["scan_time"],
+            result["malicious"],
+            result["suspicious"],
+            result["harmless"],
+            result["undetected"],
+            result["timeout"],
+            ", ".join(result["keywords"]),
+            ", ".join(result["brand_indicators"]),
+            str(result["suspicious_subdomain"]),
+            result["risk_score"],
+            result["risk_level"],
+            result["recommendation"],
+            result["analyst_notes"]
         ),
     )
+
     conn.commit()
     conn.close()
 
@@ -92,19 +136,23 @@ def load_history():
     conn.close()
     return df
 
+
 # ------------------------------------------------------
 # URL Parsing and Risk Indicators
 # ------------------------------------------------------
 def normalize_url(url):
     url = str(url).strip()
+
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+
     return url
 
 
 def parse_url_details(url):
     parsed = urlparse(url)
     extracted = tldextract.extract(url)
+
     domain = f"{extracted.domain}.{extracted.suffix}" if extracted.suffix else extracted.domain
     subdomain = extracted.subdomain if extracted.subdomain else "None"
     path = parsed.path if parsed.path else "/"
@@ -128,8 +176,17 @@ def detect_brand_impersonation(url):
     return [brand for brand in BRAND_KEYWORDS if brand in lower_url]
 
 
-def calculate_risk_score(malicious, suspicious, undetected, timeout, keyword_count, brand_count, has_suspicious_subdomain):
+def calculate_risk_score(
+    malicious,
+    suspicious,
+    undetected,
+    timeout,
+    keyword_count,
+    brand_count,
+    has_suspicious_subdomain
+):
     score = 0
+
     score += malicious * 22
     score += suspicious * 12
     score += timeout * 2
@@ -146,21 +203,23 @@ def calculate_risk_score(malicious, suspicious, undetected, timeout, keyword_cou
 def assign_risk_level(score):
     if score >= 80:
         return "Critical"
-    if score >= 55:
+    elif score >= 55:
         return "High"
-    if score >= 25:
+    elif score >= 25:
         return "Medium"
-    return "Low"
+    else:
+        return "Low"
 
 
 def create_recommendation(risk_level):
     if risk_level == "Critical":
         return "Escalate immediately, block the URL/domain, preserve evidence, and check for user clicks."
-    if risk_level == "High":
+    elif risk_level == "High":
         return "Escalate for SOC review, consider blocking the domain, and search logs for related activity."
-    if risk_level == "Medium":
+    elif risk_level == "Medium":
         return "Investigate further, validate the source, and monitor for related alerts."
-    return "Document the result and close if no other suspicious evidence is present."
+    else:
+        return "Document the result and close if no other suspicious evidence is present."
 
 
 def generate_analyst_notes(result):
@@ -177,15 +236,24 @@ def generate_analyst_notes(result):
         f"{result['recommendation']}"
     )
 
+
 # ------------------------------------------------------
 # VirusTotal API Functions
 # ------------------------------------------------------
 def submit_url_to_virustotal(url):
     endpoint = "https://www.virustotal.com/api/v3/urls"
-    response = requests.post(endpoint, headers=VT_HEADERS, data={"url": url}, timeout=20)
+
+    response = requests.post(
+        endpoint,
+        headers=VT_HEADERS,
+        data={"url": url},
+        timeout=20
+    )
 
     if response.status_code not in [200, 201]:
-        raise RuntimeError(f"VirusTotal URL submission failed: {response.status_code} - {response.text}")
+        raise RuntimeError(
+            f"VirusTotal URL submission failed: {response.status_code} - {response.text}"
+        )
 
     return response.json()["data"]["id"]
 
@@ -194,10 +262,16 @@ def get_analysis_results(analysis_id):
     endpoint = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
 
     for _ in range(12):
-        response = requests.get(endpoint, headers=VT_HEADERS, timeout=20)
+        response = requests.get(
+            endpoint,
+            headers=VT_HEADERS,
+            timeout=20
+        )
 
         if response.status_code != 200:
-            raise RuntimeError(f"VirusTotal analysis lookup failed: {response.status_code} - {response.text}")
+            raise RuntimeError(
+                f"VirusTotal analysis lookup failed: {response.status_code} - {response.text}"
+            )
 
         data = response.json()
         status = data["data"]["attributes"].get("status")
@@ -209,20 +283,28 @@ def get_analysis_results(analysis_id):
 
     raise TimeoutError("VirusTotal analysis did not finish in time. Try again in a few minutes.")
 
+
 # ------------------------------------------------------
 # Main Analysis Function
 # ------------------------------------------------------
 def analyze_url(url):
     url = normalize_url(url)
     parsed_details = parse_url_details(url)
+
     keywords = detect_keywords(url)
     brand_indicators = detect_brand_impersonation(url)
-    has_suspicious_subdomain = parsed_details["subdomain"] != "None" and any(
-        word in parsed_details["subdomain"].lower() for word in ["login", "secure", "verify", "account", "update"]
+
+    has_suspicious_subdomain = (
+        parsed_details["subdomain"] != "None"
+        and any(
+            word in parsed_details["subdomain"].lower()
+            for word in ["login", "secure", "verify", "account", "update"]
+        )
     )
 
     analysis_id = submit_url_to_virustotal(url)
     vt_data = get_analysis_results(analysis_id)
+
     stats = vt_data["data"]["attributes"].get("stats", {})
 
     malicious = stats.get("malicious", 0)
@@ -265,28 +347,23 @@ def analyze_url(url):
     }
 
     result["analyst_notes"] = generate_analyst_notes(result)
+
     save_scan(result)
+
     return result
+
 
 # ------------------------------------------------------
 # Streamlit Dashboard
 # ------------------------------------------------------
-st.set_page_config(
-    page_title="Phishing Link Threat Analysis Dashboard",
-    layout="wide",
-)
-
 init_db()
 
 st.title("Phishing Link Threat Analysis Dashboard")
+
 st.write(
     "A SOC-style dashboard that uses VirusTotal threat intelligence, custom risk scoring, "
     "URL parsing, scan history, and exportable reports to support phishing alert triage."
 )
-
-if not VT_API_KEY:
-    st.error("VirusTotal API key was not found. Add VT_API_KEY to your .env file before running scans.")
-    st.stop()
 
 with st.sidebar:
     st.header("Project Features")
@@ -297,18 +374,19 @@ with st.sidebar:
     st.write("• SQLite scan history")
     st.write("• Exportable CSV reports")
 
-
-tab1, tab2, tab3, = st.tabs([
+tab1, tab2, tab3 = st.tabs([
     "Single URL Scan",
     "Bulk CSV Scan",
     "Scan History",
 ])
+
 
 # ------------------------------------------------------
 # Single Scan Tab
 # ------------------------------------------------------
 with tab1:
     st.subheader("Single URL Investigation")
+
     input_url = st.text_input("Enter a suspicious URL")
 
     if st.button("Analyze URL", type="primary"):
@@ -320,98 +398,147 @@ with tab1:
                     result = analyze_url(input_url)
 
                     col1, col2, col3, col4 = st.columns(4)
+
                     col1.metric("Risk Score", f"{result['risk_score']}/100")
                     col2.metric("Risk Level", result["risk_level"])
                     col3.metric("Malicious", result["malicious"])
                     col4.metric("Suspicious", result["suspicious"])
 
                     st.subheader("URL Breakdown")
-                    breakdown = pd.DataFrame([
-                        ["Full URL", result["url"]],
-                        ["Domain", result["domain"]],
-                        ["Subdomain", result["subdomain"]],
-                        ["Path", result["path"]],
-                        ["Scheme", result["scheme"]],
-                    ], columns=["Field", "Value"])
+
+                    breakdown = pd.DataFrame(
+                        [
+                            ["Full URL", result["url"]],
+                            ["Domain", result["domain"]],
+                            ["Subdomain", result["subdomain"]],
+                            ["Path", result["path"]],
+                            ["Scheme", result["scheme"]],
+                        ],
+                        columns=["Field", "Value"]
+                    )
+
                     st.dataframe(breakdown, use_container_width=True)
 
                     st.subheader("VirusTotal Verdict Counts")
-                    verdict_df = pd.DataFrame({
-                        "Category": ["Malicious", "Suspicious", "Harmless", "Undetected", "Timeout"],
-                        "Count": [
-                            result["malicious"], result["suspicious"], result["harmless"],
-                            result["undetected"], result["timeout"]
-                        ],
-                    })
+
+                    verdict_df = pd.DataFrame(
+                        {
+                            "Category": [
+                                "Malicious",
+                                "Suspicious",
+                                "Harmless",
+                                "Undetected",
+                                "Timeout"
+                            ],
+                            "Count": [
+                                result["malicious"],
+                                result["suspicious"],
+                                result["harmless"],
+                                result["undetected"],
+                                result["timeout"],
+                            ],
+                        }
+                    )
+
                     st.bar_chart(verdict_df.set_index("Category"))
 
                     st.subheader("Risk Indicators")
-                    st.write(f"**Phishing Keywords:** {', '.join(result['keywords']) if result['keywords'] else 'None detected'}")
-                    st.write(f"**Brand Indicators:** {', '.join(result['brand_indicators']) if result['brand_indicators'] else 'None detected'}")
+
+                    phishing_keywords = (
+                        ", ".join(result["keywords"])
+                        if result["keywords"]
+                        else "None detected"
+                    )
+
+                    brand_indicators = (
+                        ", ".join(result["brand_indicators"])
+                        if result["brand_indicators"]
+                        else "None detected"
+                    )
+
+                    st.write(f"**Phishing Keywords:** {phishing_keywords}")
+                    st.write(f"**Brand Indicators:** {brand_indicators}")
                     st.write(f"**Suspicious Subdomain:** {result['suspicious_subdomain']}")
 
                     st.subheader("Recommended Action")
                     st.info(result["recommendation"])
 
                     st.subheader("Analyst Notes")
-                    st.text_area("Copy-ready SOC notes", result["analyst_notes"], height=160)
+                    st.text_area(
+                        "Copy-ready SOC notes",
+                        result["analyst_notes"],
+                        height=160
+                    )
 
                     report_df = pd.DataFrame([result])
+
                     st.download_button(
                         "Download This Investigation as CSV",
                         report_df.to_csv(index=False).encode("utf-8"),
                         "single_url_investigation_report.csv",
                         "text/csv",
                     )
+
                 except Exception as exc:
                     st.error(str(exc))
+
 
 # ------------------------------------------------------
 # Bulk CSV Tab
 # ------------------------------------------------------
 with tab2:
     st.subheader("Bulk URL Scan")
+
     st.write("Upload a CSV file with a column named `url`.")
+
     uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
+
         st.write("Preview")
         st.dataframe(df.head(), use_container_width=True)
 
         if "url" not in df.columns:
             st.error("The CSV must contain a column named `url`.")
         elif st.button("Analyze CSV URLs", type="primary"):
+            urls = df["url"].dropna().tolist()
             results = []
+
             progress = st.progress(0)
 
-            for index, url in enumerate(df["url"].dropna()):
+            for index, url in enumerate(urls):
                 with st.spinner(f"Analyzing {url}..."):
                     try:
                         results.append(analyze_url(url))
                     except Exception as exc:
-                        results.append({
-                            "url": url,
-                            "domain": "Error",
-                            "subdomain": "Error",
-                            "path": "Error",
-                            "scheme": "Error",
-                            "scan_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "malicious": 0,
-                            "suspicious": 0,
-                            "harmless": 0,
-                            "undetected": 0,
-                            "timeout": 0,
-                            "keywords": [],
-                            "brand_indicators": [],
-                            "risk_score": 0,
-                            "risk_level": "Error",
-                            "recommendation": str(exc),
-                            "analyst_notes": str(exc),
-                        })
-                progress.progress((index + 1) / len(df["url"].dropna()))
+                        results.append(
+                            {
+                                "url": url,
+                                "domain": "Error",
+                                "subdomain": "Error",
+                                "path": "Error",
+                                "scheme": "Error",
+                                "scan_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "malicious": 0,
+                                "suspicious": 0,
+                                "harmless": 0,
+                                "undetected": 0,
+                                "timeout": 0,
+                                "keywords": [],
+                                "brand_indicators": [],
+                                "suspicious_subdomain": False,
+                                "risk_score": 0,
+                                "risk_level": "Error",
+                                "recommendation": str(exc),
+                                "analyst_notes": str(exc),
+                            }
+                        )
+
+                progress.progress((index + 1) / len(urls))
 
             results_df = pd.DataFrame(results)
+
             st.subheader("Bulk Scan Results")
             st.dataframe(results_df, use_container_width=True)
 
@@ -422,17 +549,20 @@ with tab2:
                 "text/csv",
             )
 
+
 # ------------------------------------------------------
 # History Tab
 # ------------------------------------------------------
 with tab3:
     st.subheader("Previous Investigations")
+
     history_df = load_history()
 
     if history_df.empty:
         st.info("No previous scans found yet.")
     else:
         st.dataframe(history_df, use_container_width=True)
+
         st.download_button(
             "Download Full Scan History",
             history_df.to_csv(index=False).encode("utf-8"),
