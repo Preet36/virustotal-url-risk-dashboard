@@ -68,7 +68,7 @@ cd virustotal-url-risk-dashboard
 ```bash
 python -m venv .venv
 
-If that does not work use this command instead:
+If that does not work use this instead:
 py -m venv .venv
 ```
 
