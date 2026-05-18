@@ -1,5 +1,5 @@
 streamlit
-requests
 pandas
-python-dotenv
+requests
 tldextract
+python-dotenv
