@@ -193,8 +193,10 @@ Risk levels:
 
 ```text
 The URL http://malware.wicar.org was triaged as Critical risk with a score of 100/100.
-VirusTotal returned 15 malicious, 1 suspicious, 47 harmless, and 30 undetected verdicts.
-The extracted domain is wicar.org with subdomain malware and path /.
+VirusTotal returned 16 malicious, 1 suspicious, 46 harmless, and 30 undetected verdicts.
+The original URL was expanded through redirect analysis. The final destination is http://malware.wicar.org/ with final domain wicar.org.
+Redirect count: 0. Cross-domain redirect detected: False. URL shortener detected: False.
+The extracted final-domain details are domain wicar.org, subdomain malware, and path /.
 Phishing keywords found: none detected. Brand-related indicators found: none detected.
 Recommended action: Escalate immediately, block the URL/domain, preserve evidence, and check for user clicks.
 ```
