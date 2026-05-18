@@ -1,6 +1,7 @@
 import os
 import time
 import sqlite3
+import ipaddress
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -9,6 +10,7 @@ import requests
 import streamlit as st
 import tldextract
 from dotenv import load_dotenv
+from requests.exceptions import TooManyRedirects
 
 # ------------------------------------------------------
 # Streamlit Page Configuration
@@ -56,6 +58,11 @@ BRAND_KEYWORDS = [
     "chase", "bankofamerica", "wellsfargo", "netflix", "facebook"
 ]
 
+URL_SHORTENERS = [
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly",
+    "rebrand.ly", "cutt.ly", "is.gd", "buff.ly", "shorturl.at"
+]
+
 # ------------------------------------------------------
 # Database Functions
 # ------------------------------------------------------
@@ -83,10 +90,32 @@ def init_db():
             risk_score INTEGER,
             risk_level TEXT,
             recommendation TEXT,
-            analyst_notes TEXT
+            analyst_notes TEXT,
+            final_url TEXT,
+            final_domain TEXT,
+            redirect_count INTEGER,
+            redirect_chain TEXT,
+            cross_domain_redirect TEXT,
+            url_shortener_detected TEXT
         )
         """
     )
+
+    new_columns = {
+        "final_url": "TEXT",
+        "final_domain": "TEXT",
+        "redirect_count": "INTEGER",
+        "redirect_chain": "TEXT",
+        "cross_domain_redirect": "TEXT",
+        "url_shortener_detected": "TEXT"
+    }
+
+    cursor.execute("PRAGMA table_info(scans)")
+    existing_columns = [column[1] for column in cursor.fetchall()]
+
+    for column_name, column_type in new_columns.items():
+        if column_name not in existing_columns:
+            cursor.execute(f"ALTER TABLE scans ADD COLUMN {column_name} {column_type}")
 
     conn.commit()
     conn.close()
@@ -101,9 +130,11 @@ def save_scan(result):
         INSERT INTO scans (
             url, domain, subdomain, path, scan_time, malicious, suspicious,
             harmless, undetected, timeout, phishing_keywords, brand_indicators,
-            suspicious_subdomain, risk_score, risk_level, recommendation, analyst_notes
+            suspicious_subdomain, risk_score, risk_level, recommendation, analyst_notes,
+            final_url, final_domain, redirect_count, redirect_chain,
+            cross_domain_redirect, url_shortener_detected
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             result["url"],
@@ -122,7 +153,13 @@ def save_scan(result):
             result["risk_score"],
             result["risk_level"],
             result["recommendation"],
-            result["analyst_notes"]
+            result["analyst_notes"],
+            result["final_url"],
+            result["final_domain"],
+            result["redirect_count"],
+            result["redirect_chain_text"],
+            str(result["cross_domain_redirect"]),
+            str(result["url_shortener_detected"])
         ),
     )
 
@@ -166,6 +203,171 @@ def parse_url_details(url):
     }
 
 
+def is_ip_address(hostname):
+    try:
+        ipaddress.ip_address(hostname)
+        return True
+    except ValueError:
+        return False
+
+
+def is_local_or_private_host(hostname):
+    if not hostname:
+        return True
+
+    hostname = hostname.lower()
+
+    if hostname in ["localhost", "127.0.0.1", "0.0.0.0"]:
+        return True
+
+    try:
+        ip = ipaddress.ip_address(hostname)
+        return (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+        )
+    except ValueError:
+        return False
+
+
+def is_url_shortener(domain):
+    return domain.lower() in URL_SHORTENERS
+
+
+def analyze_redirect_chain(url, max_redirects=6):
+    """
+    Follows redirects and returns each hop in the redirect chain.
+    This helps identify shortened URLs, tracking redirects, and suspicious final destinations.
+    """
+
+    session = requests.Session()
+    session.max_redirects = max_redirects
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 SOC-URL-Triage-Scanner"
+    }
+
+    try:
+        parsed_start = urlparse(url)
+        hostname = parsed_start.hostname
+
+        if is_local_or_private_host(hostname):
+            return {
+                "redirect_chain": [
+                    {
+                        "url": url,
+                        "status_code": "Blocked",
+                        "domain": hostname or "Unknown",
+                        "subdomain": "Unknown",
+                        "path": "Unknown",
+                        "reason": "Local or private host blocked for safety"
+                    }
+                ],
+                "final_url": url,
+                "final_domain": hostname or "Unknown",
+                "redirect_count": 0,
+                "cross_domain_redirect": False,
+                "url_shortener_detected": False,
+                "redirect_error": "Local or private host blocked for safety"
+            }
+
+        response = session.get(
+            url,
+            allow_redirects=True,
+            timeout=10,
+            headers=headers,
+            stream=True
+        )
+
+        chain = []
+
+        all_responses = response.history + [response]
+
+        for item in all_responses:
+            parsed_item = parse_url_details(item.url)
+
+            chain.append(
+                {
+                    "url": item.url,
+                    "status_code": item.status_code,
+                    "domain": parsed_item["domain"],
+                    "subdomain": parsed_item["subdomain"],
+                    "path": parsed_item["path"]
+                }
+            )
+
+        response.close()
+
+        original_domain = chain[0]["domain"] if chain else parse_url_details(url)["domain"]
+        final_url = chain[-1]["url"] if chain else url
+        final_domain = chain[-1]["domain"] if chain else original_domain
+
+        domains_seen = list({hop["domain"] for hop in chain})
+        cross_domain_redirect = len(domains_seen) > 1
+
+        url_shortener_detected = any(
+            is_url_shortener(hop["domain"])
+            for hop in chain
+        )
+
+        return {
+            "redirect_chain": chain,
+            "final_url": final_url,
+            "final_domain": final_domain,
+            "redirect_count": max(len(chain) - 1, 0),
+            "cross_domain_redirect": cross_domain_redirect,
+            "url_shortener_detected": url_shortener_detected,
+            "redirect_error": None
+        }
+
+    except TooManyRedirects:
+        parsed_fallback = parse_url_details(url)
+
+        return {
+            "redirect_chain": [
+                {
+                    "url": url,
+                    "status_code": "Error",
+                    "domain": parsed_fallback["domain"],
+                    "subdomain": parsed_fallback["subdomain"],
+                    "path": parsed_fallback["path"],
+                    "reason": "Too many redirects"
+                }
+            ],
+            "final_url": url,
+            "final_domain": parsed_fallback["domain"],
+            "redirect_count": max_redirects,
+            "cross_domain_redirect": False,
+            "url_shortener_detected": is_url_shortener(parsed_fallback["domain"]),
+            "redirect_error": "Too many redirects"
+        }
+
+    except requests.exceptions.RequestException as error:
+        parsed_fallback = parse_url_details(url)
+
+        return {
+            "redirect_chain": [
+                {
+                    "url": url,
+                    "status_code": "Error",
+                    "domain": parsed_fallback["domain"],
+                    "subdomain": parsed_fallback["subdomain"],
+                    "path": parsed_fallback["path"],
+                    "reason": str(error)
+                }
+            ],
+            "final_url": url,
+            "final_domain": parsed_fallback["domain"],
+            "redirect_count": 0,
+            "cross_domain_redirect": False,
+            "url_shortener_detected": is_url_shortener(parsed_fallback["domain"]),
+            "redirect_error": str(error)
+        }
+
+
 def detect_keywords(url):
     lower_url = url.lower()
     return [keyword for keyword in PHISHING_KEYWORDS if keyword in lower_url]
@@ -183,7 +385,10 @@ def calculate_risk_score(
     timeout,
     keyword_count,
     brand_count,
-    has_suspicious_subdomain
+    has_suspicious_subdomain,
+    redirect_count=0,
+    cross_domain_redirect=False,
+    url_shortener_detected=False
 ):
     score = 0
 
@@ -196,6 +401,18 @@ def calculate_risk_score(
 
     if has_suspicious_subdomain:
         score += 8
+
+    if redirect_count >= 2:
+        score += 8
+
+    if redirect_count >= 4:
+        score += 7
+
+    if cross_domain_redirect:
+        score += 8
+
+    if url_shortener_detected:
+        score += 10
 
     return min(score, 100)
 
@@ -230,10 +447,13 @@ def generate_analyst_notes(result):
         f"The URL {result['url']} was triaged as {result['risk_level']} risk with a score of "
         f"{result['risk_score']}/100. VirusTotal returned {result['malicious']} malicious, "
         f"{result['suspicious']} suspicious, {result['harmless']} harmless, and "
-        f"{result['undetected']} undetected verdicts. The extracted domain is {result['domain']} "
-        f"with subdomain {result['subdomain']} and path {result['path']}. Phishing keywords found: "
-        f"{keyword_text}. Brand-related indicators found: {brand_text}. Recommended action: "
-        f"{result['recommendation']}"
+        f"{result['undetected']} undetected verdicts. The original URL was expanded through redirect analysis. "
+        f"The final destination is {result['final_url']} with final domain {result['final_domain']}. "
+        f"Redirect count: {result['redirect_count']}. Cross-domain redirect detected: "
+        f"{result['cross_domain_redirect']}. URL shortener detected: {result['url_shortener_detected']}. "
+        f"The extracted final-domain details are domain {result['domain']}, subdomain {result['subdomain']}, "
+        f"and path {result['path']}. Phishing keywords found: {keyword_text}. "
+        f"Brand-related indicators found: {brand_text}. Recommended action: {result['recommendation']}"
     )
 
 
@@ -289,10 +509,16 @@ def get_analysis_results(analysis_id):
 # ------------------------------------------------------
 def analyze_url(url):
     url = normalize_url(url)
-    parsed_details = parse_url_details(url)
 
-    keywords = detect_keywords(url)
-    brand_indicators = detect_brand_impersonation(url)
+    redirect_analysis = analyze_redirect_chain(url)
+    final_url = redirect_analysis["final_url"]
+
+    parsed_details = parse_url_details(final_url)
+
+    combined_url_for_detection = f"{url} {final_url}"
+
+    keywords = detect_keywords(combined_url_for_detection)
+    brand_indicators = detect_brand_impersonation(combined_url_for_detection)
 
     has_suspicious_subdomain = (
         parsed_details["subdomain"] != "None"
@@ -302,7 +528,7 @@ def analyze_url(url):
         )
     )
 
-    analysis_id = submit_url_to_virustotal(url)
+    analysis_id = submit_url_to_virustotal(final_url)
     vt_data = get_analysis_results(analysis_id)
 
     stats = vt_data["data"]["attributes"].get("stats", {})
@@ -321,10 +547,20 @@ def analyze_url(url):
         keyword_count=len(keywords),
         brand_count=len(brand_indicators),
         has_suspicious_subdomain=has_suspicious_subdomain,
+        redirect_count=redirect_analysis["redirect_count"],
+        cross_domain_redirect=redirect_analysis["cross_domain_redirect"],
+        url_shortener_detected=redirect_analysis["url_shortener_detected"],
     )
 
     risk_level = assign_risk_level(risk_score)
     recommendation = create_recommendation(risk_level)
+
+    redirect_chain_text = " -> ".join(
+        [
+            f"{hop.get('url')} [{hop.get('status_code')}]"
+            for hop in redirect_analysis["redirect_chain"]
+        ]
+    )
 
     result = {
         "url": url,
@@ -344,6 +580,14 @@ def analyze_url(url):
         "risk_score": risk_score,
         "risk_level": risk_level,
         "recommendation": recommendation,
+        "final_url": final_url,
+        "final_domain": redirect_analysis["final_domain"],
+        "redirect_count": redirect_analysis["redirect_count"],
+        "redirect_chain": redirect_analysis["redirect_chain"],
+        "redirect_chain_text": redirect_chain_text,
+        "cross_domain_redirect": redirect_analysis["cross_domain_redirect"],
+        "url_shortener_detected": redirect_analysis["url_shortener_detected"],
+        "redirect_error": redirect_analysis["redirect_error"],
     }
 
     result["analyst_notes"] = generate_analyst_notes(result)
@@ -361,8 +605,8 @@ init_db()
 st.title("Phishing Link Threat Analysis Dashboard")
 
 st.write(
-    "A SOC-style dashboard that uses VirusTotal threat intelligence, custom risk scoring, "
-    "URL parsing, scan history, and exportable reports to support phishing alert triage."
+    "A SOC-style dashboard that uses VirusTotal threat intelligence, redirect-chain analysis, "
+    "custom risk scoring, URL parsing, scan history, and exportable reports to support phishing alert triage."
 )
 
 with st.sidebar:
@@ -371,6 +615,10 @@ with st.sidebar:
     st.write("• Bulk CSV scanning")
     st.write("• Custom risk scoring")
     st.write("• Phishing keyword detection")
+    st.write("• Redirect chain analysis")
+    st.write("• Final destination inspection")
+    st.write("• URL shortener detection")
+    st.write("• Cross-domain redirect detection")
     st.write("• SQLite scan history")
     st.write("• Exportable CSV reports")
 
@@ -393,7 +641,7 @@ with tab1:
         if not input_url:
             st.warning("Enter a URL first.")
         else:
-            with st.spinner("Submitting URL to VirusTotal and analyzing results..."):
+            with st.spinner("Expanding redirects, submitting URL to VirusTotal, and analyzing results..."):
                 try:
                     result = analyze_url(input_url)
 
@@ -408,7 +656,9 @@ with tab1:
 
                     breakdown = pd.DataFrame(
                         [
-                            ["Full URL", result["url"]],
+                            ["Original URL", result["url"]],
+                            ["Final URL", result["final_url"]],
+                            ["Final Domain", result["final_domain"]],
                             ["Domain", result["domain"]],
                             ["Subdomain", result["subdomain"]],
                             ["Path", result["path"]],
@@ -418,6 +668,21 @@ with tab1:
                     )
 
                     st.dataframe(breakdown, use_container_width=True)
+
+                    st.subheader("Redirect Chain Analysis")
+
+                    redirect_df = pd.DataFrame(result["redirect_chain"])
+                    st.dataframe(redirect_df, use_container_width=True)
+
+                    col5, col6, col7, col8 = st.columns(4)
+
+                    col5.metric("Redirect Count", result["redirect_count"])
+                    col6.metric("Final Domain", result["final_domain"])
+                    col7.metric("Cross-Domain Redirect", str(result["cross_domain_redirect"]))
+                    col8.metric("URL Shortener", str(result["url_shortener_detected"]))
+
+                    if result["redirect_error"]:
+                        st.warning(f"Redirect analysis warning: {result['redirect_error']}")
 
                     st.subheader("VirusTotal Verdict Counts")
 
@@ -459,6 +724,8 @@ with tab1:
                     st.write(f"**Phishing Keywords:** {phishing_keywords}")
                     st.write(f"**Brand Indicators:** {brand_indicators}")
                     st.write(f"**Suspicious Subdomain:** {result['suspicious_subdomain']}")
+                    st.write(f"**Cross-Domain Redirect:** {result['cross_domain_redirect']}")
+                    st.write(f"**URL Shortener Detected:** {result['url_shortener_detected']}")
 
                     st.subheader("Recommended Action")
                     st.info(result["recommendation"])
@@ -467,10 +734,11 @@ with tab1:
                     st.text_area(
                         "Copy-ready SOC notes",
                         result["analyst_notes"],
-                        height=160
+                        height=180
                     )
 
                     report_df = pd.DataFrame([result])
+                    report_df = report_df.drop(columns=["redirect_chain"], errors="ignore")
 
                     st.download_button(
                         "Download This Investigation as CSV",
@@ -532,12 +800,21 @@ with tab2:
                                 "risk_level": "Error",
                                 "recommendation": str(exc),
                                 "analyst_notes": str(exc),
+                                "final_url": url,
+                                "final_domain": "Error",
+                                "redirect_count": 0,
+                                "redirect_chain": [],
+                                "redirect_chain_text": "Error",
+                                "cross_domain_redirect": False,
+                                "url_shortener_detected": False,
+                                "redirect_error": str(exc),
                             }
                         )
 
                 progress.progress((index + 1) / len(urls))
 
             results_df = pd.DataFrame(results)
+            results_df = results_df.drop(columns=["redirect_chain"], errors="ignore")
 
             st.subheader("Bulk Scan Results")
             st.dataframe(results_df, use_container_width=True)
