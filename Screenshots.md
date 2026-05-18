@@ -7,7 +7,7 @@ ___
 
 After entering a valid VirusTotal API key, the dashboard becomes ready to analyze URLs and display security results.
 
-<img width="2874" height="1288" alt="image" src="https://github.com/user-attachments/assets/b51726f7-43f4-41c7-bbf7-113a545757df" />
+<img width="2645" height="903" alt="image" src="https://github.com/user-attachments/assets/f94661c3-b98a-420f-a9ac-bb9a68bfacd7" />
 
 ___
 
@@ -15,7 +15,8 @@ ___
 
 The Bulk CSV tab allows users to upload and analyze multiple URLs at once through a CSV file.
 
-<img width="2756" height="1056" alt="image" src="https://github.com/user-attachments/assets/da435b41-fe7e-48c9-a6ca-dce1614e5a48" />
+<img width="2057" height="994" alt="image" src="https://github.com/user-attachments/assets/0f9ba331-6e47-47f6-a591-cd18998bafc2" />
+
 
 ___
 
@@ -23,17 +24,20 @@ ___
 
 The History tab stores previously analyzed URLs, allowing users to review past scan results and investigation activity.
 
-<img width="2686" height="881" alt="image" src="https://github.com/user-attachments/assets/6dfb52e1-83a1-4c6c-a2e0-435a63014430" />
+<img width="2690" height="716" alt="image" src="https://github.com/user-attachments/assets/b525a10c-f1a5-449c-9a41-daa002a838ed" />
 
 ___
 
 ### Suspicious URL Analysis Output
 
-When a suspicious URL is submitted, the dashboard displays the VirusTotal scan summary, detection counts, risk score, and SOC-style analyst notes.
+When a suspicious URL is submitted, the dashboard expands and analyzes the redirect chain, identifies the final destination, retrieves VirusTotal verdict counts, calculates a custom risk score, and generates SOC-style analyst notes with a recommended action.
 
-<img width="2715" height="1348" alt="image" src="https://github.com/user-attachments/assets/dc6b5a5e-d606-4467-87b6-e21b9b9fdc62" />
-<img width="2772" height="1286" alt="image" src="https://github.com/user-attachments/assets/18266232-695d-4eb9-a89e-3d55b6dca013" />
-<img width="2684" height="1013" alt="image" src="https://github.com/user-attachments/assets/54f81746-6d99-43f4-bb1e-8c526c146171" />
+<img width="2713" height="1317" alt="image" src="https://github.com/user-attachments/assets/b25f6fa3-39aa-4629-b6f0-84fec4319414" />
+<img width="2671" height="594" alt="image" src="https://github.com/user-attachments/assets/3db0dda8-0d33-4b4a-bb83-dc8c3d08bc5f" />
+<img width="2688" height="1416" alt="image" src="https://github.com/user-attachments/assets/c93a7525-ba71-459f-9a56-2ddf5ae41bc7" />
+<img width="2691" height="1071" alt="image" src="https://github.com/user-attachments/assets/39c9f04f-c4a5-4c74-a1ac-2b3bae02b141" />
+
+
 
 ___
 
@@ -41,9 +45,10 @@ ___
 
 After a CSV file is uploaded and processed, the dashboard displays the analysis results for each submitted URL. This includes the VirusTotal scan verdicts, risk score, severity level, and SOC-style recommendations for reviewing multiple URLs efficiently.
 
-<img width="2100" height="1418" alt="image" src="https://github.com/user-attachments/assets/bb5add9c-2b2a-410a-a6fd-171f0419ade9" />
+<img width="2678" height="1331" alt="image" src="https://github.com/user-attachments/assets/95496b6f-f5f2-48e3-8fcf-fd0e8df3ad6d" />
 
-<img width="2058" height="669" alt="image" src="https://github.com/user-attachments/assets/9f694011-05ba-4096-b081-01440affdf7a" />
+<img width="2791" height="603" alt="image" src="https://github.com/user-attachments/assets/d1d8e40e-d7fe-4c8a-aaa8-f1617300f45e" />
+
 
 ___
 
@@ -51,7 +56,9 @@ ___
 
 After a URL is analyzed, the result is automatically added to the History tab for later review.
 
-<img width="2080" height="1427" alt="image" src="https://github.com/user-attachments/assets/5f0c95a9-f41d-4679-9c9b-04517b58325a" />
+<img width="2737" height="1125" alt="image" src="https://github.com/user-attachments/assets/6810cc28-8db1-430f-85f9-0b9d46239149" />
+
+
 
 
 
